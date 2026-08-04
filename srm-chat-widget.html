@@ -1,0 +1,646 @@
+<!-- ============================================================
+  SRM Agadir — Widget d'assistance virtuelle
+  Intégration : coller ce bloc juste avant </body> sur le site,
+  ou l'inclure via <iframe src="srm-chat-widget.html"></iframe>.
+  Le widget parle à un backend FastAPI sur POST {API_URL}/chat
+  avec le corps {"question": "..."} et attend {"answer": "..."}.
+  Thème : clair par défaut, respecte prefers-color-scheme, et un
+  bouton dans l'en-tête permet de basculer manuellement (le choix
+  est mémorisé dans localStorage).
+============================================================= -->
+<div id="srm-chat-root">
+
+  <!-- Launcher flottant -->
+  <button id="srm-launcher" aria-label="Ouvrir l'assistant SRM Agadir" aria-expanded="false">
+    <svg id="srm-launcher-icon-open" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2.5C12 2.5 6.5 9.2 6.5 13.6C6.5 16.9 8.9 19.5 12 19.5C15.1 19.5 17.5 16.9 17.5 13.6C17.5 9.2 12 2.5 12 2.5Z" fill="currentColor"/>
+    </svg>
+    <svg id="srm-launcher-icon-close" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <!-- Panneau de chat -->
+  <section id="srm-panel" role="dialog" aria-label="Assistant virtuel SRM Agadir" aria-hidden="true">
+
+    <header id="srm-header">
+      <div id="srm-header-top">
+        <div id="srm-header-identity">
+          <span id="srm-header-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5C12 2.5 6.5 9.2 6.5 13.6C6.5 16.9 8.9 19.5 12 19.5C15.1 19.5 17.5 16.9 17.5 13.6C17.5 9.2 12 2.5 12 2.5Z" fill="currentColor"/></svg>
+          </span>
+          <div>
+            <h2>Assistant SRM
+              <span id="srm-verified-badge" aria-label="Assistant vérifié" title="Assistant vérifié">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5L11 14.5L15.5 9.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+            </h2>
+            <p id="srm-header-status">Votre assistant virtuel pour toutes vos questions</p>
+          </div>
+        </div>
+        <div id="srm-header-actions">
+          <button id="srm-theme-toggle" type="button" aria-label="Basculer le mode sombre / clair">
+            <svg id="srm-theme-icon-sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="4.4" fill="currentColor"/>
+              <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <path d="M12 2.5V4.6"/><path d="M12 19.4V21.5"/>
+                <path d="M4.2 4.2L5.7 5.7"/><path d="M18.3 18.3L19.8 19.8"/>
+                <path d="M2.5 12H4.6"/><path d="M19.4 12H21.5"/>
+                <path d="M4.2 19.8L5.7 18.3"/><path d="M18.3 5.7L19.8 4.2"/>
+              </g>
+            </svg>
+            <svg id="srm-theme-icon-moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20.2 14.6C18.9 15.2 17.5 15.5 16 15.4C11.5 15.1 8 11.4 8 6.9C8 5.5 8.3 4.2 8.9 3C5.2 4.1 2.5 7.6 2.5 11.7C2.5 16.7 6.5 20.7 11.5 20.7C15.5 20.7 19 18.1 20.2 14.6Z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button id="srm-minimize" aria-label="Réduire la fenêtre">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div id="srm-messages" aria-live="polite"></div>
+
+    <div id="srm-quick-replies"></div>
+
+    <form id="srm-input-row">
+      <button type="button" id="srm-attach" aria-label="Joindre un fichier" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M17.5 8.6L9.6 16.5C8.3 17.8 6.2 17.8 4.9 16.5C3.6 15.2 3.6 13.1 4.9 11.8L13.3 3.4C14.2 2.5 15.6 2.5 16.5 3.4C17.4 4.3 17.4 5.7 16.5 6.6L8.4 14.7C8 15.1 7.3 15.1 6.9 14.7C6.5 14.3 6.5 13.6 6.9 13.2L14.3 5.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <textarea
+        id="srm-input"
+        rows="1"
+        placeholder="Écrivez votre message…"
+        aria-label="Votre message"
+      ></textarea>
+      <button type="submit" id="srm-send" aria-label="Envoyer le message">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L14 20L11 13L4 12Z" fill="currentColor"/></svg>
+      </button>
+    </form>
+    <p id="srm-disclaimer">Les réponses sont générées automatiquement à partir des documents SRM Agadir et peuvent comporter des erreurs.</p>
+  </section>
+</div>
+
+<style>
+  #srm-chat-root, #srm-chat-root * {
+    box-sizing: border-box;
+    font-family: 'SRM-Body', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  #srm-chat-root {
+    /* ---------- Palette claire (par défaut) ---------- */
+    --srm-navy:          #16345C;
+    --srm-navy-dk:       #0E2444;
+    --srm-navy-soft:     #EAF0F8;
+    --srm-green:         #6FBE44;
+    --srm-green-dk:      #58A233;
+    --srm-bg:            #FFFFFF;
+    --srm-panel-bg:      #FFFFFF;
+    --srm-header-bg:     #FFFFFF;
+    --srm-text:          #16345C;
+    --srm-text-soft:     #6B7A90;
+    --srm-line:          #E7EBF2;
+    --srm-bot-bubble:    #F3F5F9;
+    --srm-bot-bubble-bd: #E7EBF2;
+    --srm-user-bubble:   #16345C;
+    --srm-chip-bg:       #FFFFFF;
+    --srm-chip-bd:       #D8DEE9;
+    --srm-input-bg:      #F3F5F9;
+    --srm-shadow: 0 20px 50px -12px rgba(15,42,77,.22), 0 4px 14px -4px rgba(15,42,77,.12);
+    --srm-scrollbar:     #D8DEE9;
+
+    position: fixed;
+    z-index: 999999;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    color-scheme: light;
+  }
+
+  #srm-chat-root[data-theme="dark"] {
+    --srm-navy:          #4E85CC;
+    --srm-navy-dk:       #3A6BAE;
+    --srm-navy-soft:     #1B2A44;
+    --srm-green:         #7FCB52;
+    --srm-green-dk:      #6FBE44;
+    --srm-bg:            #0F1B2E;
+    --srm-panel-bg:      #0F1B2E;
+    --srm-header-bg:     #101F36;
+    --srm-text:          #E8EDF5;
+    --srm-text-soft:     #93A3BE;
+    --srm-line:          #263A57;
+    --srm-bot-bubble:    #17263F;
+    --srm-bot-bubble-bd: #263A57;
+    --srm-user-bubble:   #3A6BAE;
+    --srm-chip-bg:       #16233A;
+    --srm-chip-bd:       #2A3C58;
+    --srm-input-bg:      #16233A;
+    --srm-shadow: 0 20px 50px -12px rgba(0,0,0,.55), 0 4px 14px -4px rgba(0,0,0,.35);
+    --srm-scrollbar:     #2A3C58;
+    color-scheme: dark;
+  }
+
+  @font-face {
+    font-family: 'SRM-Display';
+    src: local('Manrope'), local('Poppins');
+  }
+
+  /* ---------- Launcher ---------- */
+  #srm-launcher {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(155deg, var(--srm-green) 0%, var(--srm-navy) 78%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--srm-shadow);
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease, background .25s ease;
+    position: relative;
+  }
+  #srm-launcher:hover { transform: translateY(-2px) scale(1.04); }
+  #srm-launcher:focus-visible { outline: 3px solid var(--srm-green); outline-offset: 3px; }
+  #srm-launcher svg { width: 26px; height: 26px; position: absolute; transition: opacity .2s ease, transform .3s ease; }
+  #srm-launcher-icon-close { opacity: 0; transform: rotate(-45deg) scale(.6); }
+  #srm-chat-root.open #srm-launcher-icon-open { opacity: 0; transform: rotate(45deg) scale(.6); }
+  #srm-chat-root.open #srm-launcher-icon-close { opacity: 1; transform: rotate(0) scale(1); }
+
+  #srm-launcher::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid var(--srm-green);
+    opacity: 0;
+    animation: srm-ripple 2.8s ease-out infinite;
+  }
+  #srm-chat-root.open #srm-launcher::after { animation: none; opacity: 0; }
+  @keyframes srm-ripple {
+    0% { opacity: .5; transform: scale(.85); }
+    100% { opacity: 0; transform: scale(1.35); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #srm-launcher::after { animation: none; }
+    .srm-msg { animation: none !important; }
+  }
+
+  /* ---------- Panel ---------- */
+  #srm-panel {
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 600px;
+    max-height: calc(100vh - 120px);
+    background: var(--srm-panel-bg);
+    border-radius: 20px;
+    box-shadow: var(--srm-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: absolute;
+    bottom: 76px;
+    right: 0;
+    transform-origin: bottom right;
+    transform: scale(.92) translateY(12px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .28s cubic-bezier(.2,.9,.3,1), opacity .22s ease, background .25s ease;
+    border: 1px solid var(--srm-line);
+  }
+  #srm-chat-root.open #srm-panel {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ---------- Header ---------- */
+  #srm-header {
+    background: var(--srm-header-bg);
+    color: var(--srm-text);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--srm-line);
+    transition: background .25s ease, border-color .25s ease;
+  }
+  #srm-header-top {
+    padding: 16px 14px 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  #srm-header-identity { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  #srm-header-mark {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    background: linear-gradient(155deg, var(--srm-green) 0%, var(--srm-navy) 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #srm-header-mark svg { width: 20px; height: 20px; color: #fff; }
+  #srm-header h2 {
+    font-family: 'SRM-Display', 'Manrope', sans-serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: .1px;
+    color: var(--srm-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #srm-verified-badge {
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--srm-green);
+    color: var(--srm-navy);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #srm-verified-badge svg { width: 11px; height: 11px; }
+  #srm-header-status {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--srm-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #srm-header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  #srm-theme-toggle,
+  #srm-minimize {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--srm-text-soft);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s ease, color .15s ease;
+  }
+  #srm-theme-toggle:hover,
+  #srm-minimize:hover { background: var(--srm-navy-soft); color: var(--srm-navy); }
+  #srm-chat-root[data-theme="dark"] #srm-theme-toggle:hover,
+  #srm-chat-root[data-theme="dark"] #srm-minimize:hover { color: var(--srm-green); }
+  #srm-theme-toggle svg,
+  #srm-minimize svg { width: 17px; height: 17px; }
+  #srm-theme-icon-moon { display: none; }
+  #srm-chat-root[data-theme="dark"] #srm-theme-icon-sun { display: none; }
+  #srm-chat-root[data-theme="dark"] #srm-theme-icon-moon { display: block; }
+
+  /* ---------- Messages ---------- */
+  #srm-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--srm-bg);
+    transition: background .25s ease;
+  }
+  #srm-messages::-webkit-scrollbar { width: 7px; }
+  #srm-messages::-webkit-scrollbar-thumb { background: var(--srm-scrollbar); border-radius: 10px; }
+
+  .srm-msg { display: flex; gap: 8px; max-width: 92%; animation: srm-rise .22s ease; }
+  @keyframes srm-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .srm-msg.bot { align-self: flex-start; }
+  .srm-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .srm-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+    background: linear-gradient(155deg, var(--srm-green) 0%, var(--srm-navy) 100%);
+    color: #fff;
+  }
+  .srm-msg.bot .srm-avatar svg { width: 13px; height: 13px; }
+  .srm-msg.user .srm-avatar { display: none; }
+
+  .srm-bubble {
+    padding: 10px 13px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .srm-msg.bot .srm-bubble {
+    background: var(--srm-bot-bubble);
+    border: 1px solid var(--srm-bot-bubble-bd);
+    color: var(--srm-text);
+    border-top-left-radius: 4px;
+  }
+  .srm-msg.user .srm-bubble {
+    background: var(--srm-user-bubble);
+    color: #fff;
+    border-top-right-radius: 4px;
+  }
+
+  .srm-typing { display: flex; gap: 4px; padding: 4px 2px; }
+  .srm-typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--srm-green);
+    animation: srm-bounce 1.1s ease-in-out infinite;
+  }
+  .srm-typing span:nth-child(2) { animation-delay: .15s; }
+  .srm-typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes srm-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  /* ---------- Quick replies ---------- */
+  #srm-quick-replies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 16px 12px;
+    flex-shrink: 0;
+    background: var(--srm-bg);
+  }
+  #srm-quick-replies:empty { display: none; }
+  .srm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--srm-chip-bd);
+    background: var(--srm-chip-bg);
+    color: var(--srm-navy);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  #srm-chat-root[data-theme="dark"] .srm-chip { color: var(--srm-text); }
+  .srm-chip:hover { border-color: var(--srm-green); color: var(--srm-green-dk); }
+  #srm-chat-root[data-theme="dark"] .srm-chip:hover { color: var(--srm-green); background: var(--srm-navy-soft); }
+
+  /* ---------- Input ---------- */
+  #srm-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--srm-line);
+    background: var(--srm-panel-bg);
+    flex-shrink: 0;
+  }
+  #srm-attach {
+    width: 32px; height: 38px;
+    border: none;
+    background: transparent;
+    color: var(--srm-text-soft);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #srm-attach svg { width: 18px; height: 18px; }
+  #srm-attach:hover { color: var(--srm-navy); }
+  #srm-chat-root[data-theme="dark"] #srm-attach:hover { color: var(--srm-green); }
+  #srm-input {
+    flex: 1;
+    resize: none;
+    border: 1px solid var(--srm-line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    color: var(--srm-text);
+    max-height: 90px;
+    background: var(--srm-input-bg);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  #srm-input:focus {
+    outline: none;
+    border-color: var(--srm-green);
+    background: var(--srm-bg);
+  }
+  #srm-input::placeholder { color: var(--srm-text-soft); }
+
+  #srm-send {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    border: none;
+    background: var(--srm-navy);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s ease, transform .1s ease;
+  }
+  #srm-send svg { width: 16px; height: 16px; }
+  #srm-send:hover { background: var(--srm-navy-dk); }
+  #srm-send:active { transform: scale(.94); }
+  #srm-send:disabled { background: var(--srm-chip-bd); cursor: not-allowed; }
+
+  #srm-disclaimer {
+    font-size: 10.5px;
+    color: var(--srm-text-soft);
+    text-align: center;
+    margin: 0;
+    padding: 0 14px 10px;
+    flex-shrink: 0;
+    background: var(--srm-panel-bg);
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 480px) {
+    #srm-chat-root { bottom: 16px; right: 16px; }
+    #srm-panel {
+      width: calc(100vw - 24px);
+      height: calc(100vh - 110px);
+      bottom: 72px;
+      right: -8px;
+    }
+  }
+</style>
+
+<script>
+(function () {
+  // ---- Configuration : adapter à l'URL réelle du backend FastAPI ----
+  const API_URL = window.SRM_CHAT_API_URL || "http://localhost:8000/chat";
+  const THEME_STORAGE_KEY = "srm-chat-theme";
+
+  const root      = document.getElementById('srm-chat-root');
+  const launcher  = document.getElementById('srm-launcher');
+  const minimizeBtn = document.getElementById('srm-minimize');
+  const themeToggle = document.getElementById('srm-theme-toggle');
+  const panel     = document.getElementById('srm-panel');
+  const messages  = document.getElementById('srm-messages');
+  const form      = document.getElementById('srm-input-row');
+  const input     = document.getElementById('srm-input');
+  const sendBtn   = document.getElementById('srm-send');
+  const quickWrap = document.getElementById('srm-quick-replies');
+
+  const STARTER_PROMPTS = [
+    "Comment signaler une coupure d'eau ?",
+    "Où payer ma facture ?",
+    "Contacter le service client"
+  ];
+
+  let started = false;
+
+  // ---------- Thème clair / sombre ----------
+  function getStoredTheme() {
+    try { return localStorage.getItem(THEME_STORAGE_KEY); } catch (e) { return null; }
+  }
+  function storeTheme(value) {
+    try { localStorage.setItem(THEME_STORAGE_KEY, value); } catch (e) { /* stockage indisponible, on ignore */ }
+  }
+  function applyTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+  }
+  function initTheme() {
+    const stored = getStoredTheme();
+    if (stored === 'dark' || stored === 'light') {
+      applyTheme(stored);
+      return;
+    }
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+  themeToggle.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    storeTheme(next);
+  });
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!getStoredTheme()) applyTheme(e.matches ? 'dark' : 'light');
+    });
+  }
+  initTheme();
+
+  function toggleOpen(forceOpen) {
+    const willOpen = forceOpen !== undefined ? forceOpen : !root.classList.contains('open');
+    root.classList.toggle('open', willOpen);
+    launcher.setAttribute('aria-expanded', String(willOpen));
+    panel.setAttribute('aria-hidden', String(!willOpen));
+    if (willOpen) {
+      if (!started) { bootstrapConversation(); started = true; }
+      setTimeout(() => input.focus(), 260);
+    }
+  }
+
+  launcher.addEventListener('click', () => toggleOpen());
+  minimizeBtn.addEventListener('click', () => toggleOpen(false));
+
+  function bootstrapConversation() {
+    addMessage('bot', "Bonjour 👋 Je suis l'assistant virtuel de SRM Agadir. Posez-moi une question sur l'eau, l'électricité ou l'assainissement.");
+    renderQuickReplies(STARTER_PROMPTS);
+  }
+
+  function renderQuickReplies(prompts) {
+    quickWrap.innerHTML = '';
+    prompts.forEach(text => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'srm-chip';
+      chip.textContent = text;
+      chip.addEventListener('click', () => {
+        quickWrap.innerHTML = '';
+        sendMessage(text);
+      });
+      quickWrap.appendChild(chip);
+    });
+  }
+
+  function botAvatarSVG() {
+    return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5C12 2.5 6.5 9.2 6.5 13.6C6.5 16.9 8.9 19.5 12 19.5C15.1 19.5 17.5 16.9 17.5 13.6C17.5 9.2 12 2.5 12 2.5Z" fill="currentColor"/></svg>';
+  }
+
+  function addMessage(role, text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'srm-msg ' + role;
+
+    if (role === 'bot') {
+      const av = document.createElement('div');
+      av.className = 'srm-avatar';
+      av.innerHTML = botAvatarSVG();
+      wrap.appendChild(av);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'srm-bubble';
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  }
+
+  function addTypingIndicator() {
+    const wrap = document.createElement('div');
+    wrap.className = 'srm-msg bot';
+    wrap.id = 'srm-typing-msg';
+    wrap.innerHTML =
+      '<div class="srm-avatar">' + botAvatarSVG() + '</div>' +
+      '<div class="srm-bubble"><div class="srm-typing"><span></span><span></span><span></span></div></div>';
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function removeTypingIndicator() {
+    const el = document.getElementById('srm-typing-msg');
+    if (el) el.remove();
+  }
+
+  async function sendMessage(text) {
+    const question = (text !== undefined ? text : input.value).trim();
+    if (!question) return;
+
+    addMessage('user', question);
+    input.value = '';
+    autoGrow();
+    sendBtn.disabled = true;
+    addTypingIndicator();
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      removeTypingIndicator();
+      addMessage('bot', data.answer || "Désolé, je n'ai pas pu générer de réponse.");
+    } catch (err) {
+      removeTypingIndicator();
+      addMessage('bot', "Une erreur est survenue lors de la connexion au serveur. Réessayez dans un instant.");
+      console.error('[SRM Chat] ', err);
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendMessage();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 90) + 'px';
+  }
+  input.addEventListener('input', autoGrow);
+})();
+</script>
